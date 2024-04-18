@@ -1,0 +1,9 @@
+{
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}\\build\\playstation",
+        "--query-driver=${workspaceFolder}\\external\\psn00bsdk\\bin\\mipsel-none-elf-g++.exe"
+    ],
+    "files.associations": {
+        "cstddef": "cpp"
+    }
+}

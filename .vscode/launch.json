@@ -1,0 +1,66 @@
+{
+
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "gdb",
+            "request": "attach",
+            "name": "Game (Redux, Debug)",
+            "target": "localhost:3333",
+            "remote": true,
+            "executable": "build\\Debug\\${workspaceFolderBasename}.elf",
+            "gdbpath": "${workspaceRoot}\\external\\tundra\\external\\gdb-multiarch\\bin\\gdb-multiarch",
+            "cwd": "${workspaceRoot}",
+            "autorun": [
+                "set substitute-path /project .",
+                "monitor reset shellhalt",
+                "load build/Debug/${workspaceFolderBasename}.elf",
+            ],
+            "valuesFormatting": "prettyPrinters"
+        },
+        {
+            "type": "gdb",
+            "request": "attach",
+            "name": "Game (Redux, Release)",
+            "target": "localhost:3333",
+            "remote": true,
+            "executable": "build\\Release\\${workspaceFolderBasename}.elf",
+            "gdbpath": "${workspaceRoot}\\external\\tundra\\external\\gdb-multiarch\\bin\\gdb-multiarch",
+            "cwd": "${workspaceRoot}",
+            "autorun": [
+                "set substitute-path /project .",
+                "monitor reset shellhalt",
+                "load build/Release/${workspaceFolderBasename}.elf",
+            ],
+            "valuesFormatting": "prettyPrinters"
+        },
+        {
+            "type": "gdb",
+            "request": "attach",
+            "name": "Game (Hardware, Debug)",
+            "target": "localhost:3334",
+            "remote": true,
+            "executable": "build\\Debug\\${workspaceFolderBasename}.elf",
+            "gdbpath": "${workspaceRoot}\\external\\tundra\\external\\gdb-multiarch\\bin\\gdb-multiarch",
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "prettyPrinters",
+            "autorun": [
+                "load build/Debug/${workspaceFolderBasename}.elf"
+            ],
+        },
+        {
+            "type": "gdb",
+            "request": "attach",
+            "name": "Game (Hardware, Release)",
+            "target": "localhost:3334",
+            "remote": true,
+            "executable": "build\\Release\\${workspaceFolderBasename}.elf",
+            "gdbpath": "${workspaceRoot}\\external\\tundra\\external\\gdb-multiarch\\bin\\gdb-multiarch",
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "prettyPrinters",
+            "autorun": [
+                "load build/Release/${workspaceFolderBasename}.elf"
+            ],
+        },
+    ]
+}

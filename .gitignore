@@ -1,0 +1,4 @@
+build/
+.cache/
+.clangd
+tools/update-tundra/source-path
