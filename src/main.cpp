@@ -13,7 +13,7 @@
 
 
 const td::EngineSettings ENGINE_SETTINGS {
-    30000
+    30000 // Size of primitive buffer
 };
 
 const td::uint32 MAIN_LAYER_DEPTH_RESOLUTION = 2048;
@@ -42,25 +42,28 @@ public:
 
 };
 
+
 extern void initialize(td::EngineSystems& engine_systems) {
 
     // Setup lighting
     engine_systems.render.set_light_direction(0, { td::to_fixed(-0.577), td::to_fixed(-0.577), td::to_fixed(0.577) });
     engine_systems.render.set_light_color(0, { 255, 255, 255 });
 
-    // Setup camera
+    // Setup layer settings
     td::List<td::CameraLayerSettings> layer_settings;
     layer_settings.add({LAYER_WORLD, MAIN_LAYER_DEPTH_RESOLUTION});
-    
+
+    // Create camera
     td::Entity* camera_entity = td::Entity::create();
     td::DynamicTransform* camera_transform = camera_entity->add_component<td::DynamicTransform>();
     camera_transform->set_translation({td::to_fixed(0), td::to_fixed(0.5), td::to_fixed(-0.5)});
     td::Camera* camera = camera_entity->add_component<td::Camera>(camera_transform, layer_settings);
     camera->look_at({0,0,0});
 
-    // Setup white box
+    // Load assets
     assets::models::white_box = engine_systems.asset_load.load_model(asset_data::mdl_white_box);
 
+    // Create box
     Box::create()->transform->set_scale({ 2, 2, 2 });
 }
 
