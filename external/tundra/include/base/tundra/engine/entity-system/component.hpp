@@ -14,9 +14,9 @@ namespace td {
         TD_ASSERT(TBase::is_alive(), "Component is not alive when destroyed");
         TD_ASSERT(TBase::is_allocated(), "Component is not allocated");           
 
-        on_destroy();
+        this->on_destroy();
 
-        internal::ComponentBase* previous = TBase::get_previous_component();
+        internal::ComponentBase* previous = this->get_previous_component();
         previous->next = TBase::next;
         this->flags &= ~internal::ComponentFlags::IsAlive;
 
@@ -33,6 +33,11 @@ namespace td {
     template<typename TDerived, typename TBase>
     internal::Registry<TDerived>::Iterable Component<TDerived, TBase>::get_all() {
         return internal::Registry<TDerived>::get_all();
+    }
+
+    template<typename TDerived, typename TBase>
+    void Component<TDerived, TBase>::reserve(td::uint32 num_components) {
+        internal::Registry<TDerived>::reserve(num_components);
     }
 
 }

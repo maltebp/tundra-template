@@ -1,5 +1,8 @@
 #pragma once
 
+#include "tundra/core/limits.hpp"
+#include "tundra/engine/entity-system/internal/registry-block.dec.hpp"
+#include <limits>
 #include <tundra/engine/entity-system/internal/registry.dec.hpp>
 
 #include <tundra/core/assert.hpp>
@@ -13,13 +16,22 @@ namespace td::internal {
     template<typename TComponent>
     template<typename ... TArgs>
     TComponent* Registry<TComponent>::create_component(TArgs&& ... args) {
+        
+        RegistryBlock<TComponent>& block = get_free_block();
+        bool block_is_filled = block.get_num_allocated_components() == BLOCK_SIZE - 1;
 
-        TComponent* component = get_free_block().allocate_component();
+        if( block_is_filled ) {
+            // We are always given the last block
+            free_blocks.remove_at(free_blocks.get_size() - 1);
+        }
+
+        TComponent* component = block.allocate_component();
         new(component) TComponent(forward<TArgs>(args)...);
 
         component->flags |= ComponentFlags::IsAllocated | ComponentFlags::IsAlive; 
         component->reference_count = 0;
         component->next = component;
+        component->block_index = block.index;
         
         return component;
     }
@@ -38,28 +50,42 @@ namespace td::internal {
 
         TD_ASSERT( !component->is_alive(), "Component is still alive when freed");
         TD_ASSERT( component->is_allocated(), "Component has not been allocated when freed");
+        TD_ASSERT(
+            component->block_index < blocks.get_size(), 
+            "Component block index is out of bounds (was %d, but there are only %d blocks)", 
+            component->block_index, blocks.get_size()
+        );
         
-        RegistryBlock<TComponent>* owning_block = nullptr;
-        for( uint32 i = 0; i < blocks.get_size(); i++ ) {
-            if( blocks[i].component_belongs_to_block(component) ) {
-                owning_block = &blocks[i];
-                break;
-            }
-        }
-        
-        TD_ASSERT(owning_block != nullptr, "Component was not part of any block");
+        RegistryBlock<TComponent>& owning_block = blocks[component->block_index];        
         component->~TComponent();
-        owning_block->free_component(component);
+        if( !owning_block.has_free_entry() ) {
+            free_blocks.add(owning_block.index);
+        }
+        owning_block.free_component(component);
     }   
 
     template<typename TComponent>
-    void Registry<TComponent>::clear_block_list() {
-        TD_ASSERT(get_num_components() == 0, "All components must be destroyed before clearing blocks");
-        blocks.clear();
+    void Registry<TComponent>::reserve(td::uint32 num_components_to_reserve) {
+        int32 missing_capacity = (int32)num_components_to_reserve - (int32)get_capacity();
+        if( missing_capacity > 0 ) {
+            uint32 required_additional_blocks = (uint32)((missing_capacity / (int32)BLOCK_SIZE) + 1);
+            blocks.reserve(blocks.get_size() + uint32(required_additional_blocks));
+            free_blocks.reserve(free_blocks.get_size() + required_additional_blocks);
+            for( td::uint32 i = 0; i < required_additional_blocks; i++ ) {
+                allocate_block();
+            }
+        }
     }
 
     template<typename TComponent>
-    uint32 Registry<TComponent>::get_num_components() { 
+    void Registry<TComponent>::clear_block_list() {
+        TD_ASSERT(get_num_allocated_components() == 0, "All components must be destroyed before clearing blocks");
+        blocks.clear();
+        free_blocks.clear();
+    }
+
+    template<typename TComponent>
+    uint32 Registry<TComponent>::get_num_allocated_components() { 
         // We can track this when components are created instead, if 
         // accumulating this when needed becomes a performance issue
 
@@ -75,96 +101,101 @@ namespace td::internal {
     uint32 Registry<TComponent>::get_num_blocks() { return blocks.get_size(); }
 
     template<typename TComponent>
+    uint32 Registry<TComponent>::get_capacity() { return blocks.get_size() * BLOCK_SIZE; }
+
+    template<typename TComponent>
     Registry<TComponent>::Iterable Registry<TComponent>::get_all() {
-        return {};
+        return Registry<TComponent>::Iterable();
     }
 
     template<typename TComponent>   
     RegistryBlock<TComponent>& Registry<TComponent>::get_free_block() {
-        for( uint32 i = 0; i < blocks.get_size(); i++ ) {
-            RegistryBlock<TComponent>& block = blocks[i];
-            if( block.has_free_entry() ) return block;
-        }
+        if( free_blocks.get_size() > 0 ) return blocks[free_blocks.get_last()];
+        return allocate_block();
+    }
+
+    template<typename TComponent>   
+    RegistryBlock<TComponent>& Registry<TComponent>::allocate_block() {
+        TD_ASSERT(
+            blocks.get_size() < (td::uint32)std::numeric_limits<decltype(RegistryBlock<TComponent>::index)>::max,
+            "Maximum number of %u blocks reached",
+            (td::uint32)std::numeric_limits<decltype(RegistryBlock<TComponent>::index)>::max
+        );
+
+        td::uint8 new_block_index = static_cast<decltype(RegistryBlock<TComponent>::index)>(blocks.get_size());
 
         // No blocks are free, so we allocate new
-        blocks.add(RegistryBlock<TComponent>(BLOCK_SIZE));
-        return blocks.get_last();
+        blocks.add(RegistryBlock<TComponent>(new_block_index, BLOCK_SIZE));
+        free_blocks.add(new_block_index);
+        
+        return blocks[free_blocks.get_last()];
     }
 
     template<typename TComponent>
     class Registry<TComponent>::Iterator {
     public:
 
-        using BlockIterator = RegistryBlock<TComponent>::Iterator;
-
         enum class Type { Begin, End };
 
         constexpr Iterator(Type type) {
             if( type == Type::End || Registry::get_num_blocks() == 0 ) {
                 block_index = Registry::get_num_blocks();
-                block_iterator = {};
+                index_in_block = 0;
             }
             else {
                 block_index = 0;
-                block_iterator = Registry::blocks[0].begin();
-                skip_if_hole_or_block_end();
+                index_in_block = 0;
+                block = &Registry::blocks[0];
+                if( !is_at_end_of_last_block() ) {
+                    increment_while_at_invalid();
+                }
             }
         }
 
         constexpr bool operator==(const Iterator& other) const {
-            
-            if( block_index >= Registry::get_num_blocks() ) {
-                return other.block_index >= Registry::get_num_blocks();
-            }
-            else {
-                return block_index == other.block_index && block_iterator == other.block_iterator;
-            }
+            return block_index == other.block_index && index_in_block == other.index_in_block;
         }
 
-        constexpr Iterator& operator++() {
-            if( block_index >= Registry::get_num_blocks() ) return *this;
+        constexpr Iterator& operator++() {        
 
-            TD_ASSERT(
-                block_iterator != BlockIterator{},
-                "Block index is less than number of blocks, but iterator is nullptr"
-            );
+            ++index_in_block;
+            increment_while_at_invalid(); 
 
-            ++block_iterator;
-            skip_if_hole_or_block_end();
             return *this;
         }
 
         constexpr TComponent* operator*() {
             TD_ASSERT(block_index < Registry::get_num_blocks(), "Dereferencing end iterator");
-            return *block_iterator;
+            return &block->entries[index_in_block];
         }
 
     private:
 
-        void skip_if_hole_or_block_end() {
+        bool is_at_end_of_last_block() const { return block_index >= Registry::get_num_blocks(); }
 
-            if( block_index >= Registry::get_num_blocks() ) return;
-
-            bool reached_end_of_block = block_iterator == Registry::blocks[block_index].end();
-            if( !reached_end_of_block ) return;
-
-            // Find next, non-empty block
-            block_index++;
-            while(block_index < Registry::get_num_blocks()) {
-                RegistryBlock<TComponent>& block = Registry::blocks[block_index];
-                if( block.get_num_allocated_components() > 0 ) {
-                    block_iterator = block.begin();
-                    break;
+        void increment_while_at_invalid() {
+            while( true ) {
+                if( index_in_block >= block->capacity ) {
+                    block_index++;   
+                    index_in_block = 0;
                 }
-                else {
-                    block_index++;
+
+                if( block_index >= Registry::get_num_blocks() ) return;
+                block = &Registry::blocks[block_index];
+                
+                if( block->entries[index_in_block].is_alive() ) return;
+
+                if( !block->entries[index_in_block].is_allocated() ) {
+                    index_in_block = block->entries[index_in_block].hole_data.index_to_opposite_end;
                 }
+
+                index_in_block++;
             }
         }
 
         uint32 block_index;
-
-        BlockIterator block_iterator;
+        uint32 index_in_block;
+        RegistryBlock<TComponent>* block;
 
     };
 

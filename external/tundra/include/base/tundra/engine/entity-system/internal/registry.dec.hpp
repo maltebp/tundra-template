@@ -5,7 +5,8 @@
 namespace td::internal {
 
     // TODO: Rename to ComponentRegistry 
-
+    // TODO: Registry should be refactored to a non-static class instead of this approach
+    // This was a quick hack to allow us to iterator static registry in a foreach loop
     template<typename TComponent>
     class Registry {    
     public:
@@ -16,8 +17,6 @@ namespace td::internal {
             Iterator begin();
             Iterator end();
         };
-
-        // TODO: Non-default create function
 
         template<typename ... TArgs>
         static TComponent* create_component(TArgs&& ... args);
@@ -32,23 +31,29 @@ namespace td::internal {
         // Only use this for testing and if you know what you are doing
         static void clear_block_list();
 
-        static uint32 get_num_components();
+        static void reserve(td::uint32);
+
+        // Returns the number of alive components + the number dead components
+        // that have not been freed yet
+        static uint32 get_num_allocated_components();
 
         static uint32 get_num_blocks();
 
-        // TODO: Registry should be refactored to a non-static class instead of this approach
-        // This was a quick hack to allow us to iterator static registry in a foreach loop
+        static uint32 get_capacity();
         
         static Iterable get_all();
 
         // TODO: Make this tweakable by user (this number is pulled out of a hat)
-        static inline constexpr uint32 BLOCK_SIZE = 25; 
+        static inline constexpr uint32 BLOCK_SIZE = 1000; 
         
     private:
 
         static RegistryBlock<TComponent>& get_free_block();
 
+        static RegistryBlock<TComponent>& allocate_block();
+
         static inline List<RegistryBlock<TComponent>> blocks;
+        static inline List<typename RegistryBlock<TComponent>::BlockIndex> free_blocks;
 
     };
 

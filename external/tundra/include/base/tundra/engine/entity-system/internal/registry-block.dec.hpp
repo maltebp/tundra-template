@@ -1,5 +1,6 @@
 #pragma once
 
+#include "tundra/core/types.hpp"
 #include <tundra/core/list.dec.hpp>
 
 namespace td::internal {
@@ -7,11 +8,16 @@ namespace td::internal {
     // TODO: It might be beneficial to make this a non-template class, to limit
     // memory cost of instructions
 
+    template<typename T>
+    class Registry;
+
     template<typename TComponent>
     class RegistryBlock {
     public:
 
-        RegistryBlock(uint16 capacity);
+        using BlockIndex = td::uint8;
+
+        RegistryBlock(BlockIndex index, uint16 capacity);
 
         RegistryBlock(const RegistryBlock&) = delete;
 
@@ -39,20 +45,16 @@ namespace td::internal {
     
         [[nodiscard]] uint16 get_index_of_component(TComponent* component) const;
 
-        class Iterator;
-
-        Iterator begin();
-
-        Iterator end();
-
     private:
 
+        const BlockIndex index;
         const uint16 capacity;
         TComponent* entries;
         td::List<uint16> hole_indices; // Indices of entries that are hole heads
         uint16 num_entries = 0;
 
         friend class RegistryBlockTester;
+        friend class ::td::internal::Registry<TComponent>;
 
     };
 

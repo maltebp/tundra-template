@@ -1,9 +1,11 @@
 #pragma once
 
+#include <type_traits>
+
 #include <tundra/core/assert.hpp>
 #include <tundra/core/string.hpp>
 
-#include <tundra/engine/entity-system/internal/registry.hpp>
+#include <tundra/engine/entity-system/internal/component-base.hpp>
 
 // TODO: Create a component-ref.dec.hpp
 
@@ -42,10 +44,13 @@ namespace td {
 
         void operator=(const ComponentRef<TComponent>& other) {
             other.clear_if_dead();
-            clear();
-            this->component = other.component;
-            if( component != nullptr ) {
-                component->reference_count++;
+
+            if( &other != this ) {
+                clear();
+                this->component = other.component;
+                if( component != nullptr ) {
+                    component->reference_count++;
+                }
             }
         }
 
@@ -97,7 +102,7 @@ namespace td {
 
             component->reference_count--;
             if( component->reference_count == 0 && !component->is_alive() ) {
-                internal::Registry<TComponent>::free_component(component);
+                static_cast<internal::ComponentBase*>(component)->free();
             }
 
             component = nullptr;

@@ -16,7 +16,8 @@ function(_td_compile_asset_model target asset_name asset_input_path asset_output
         ${_TD_MODEL_COMPILER_PATH}
         ${asset_input_path}
         ${asset_output_path}
-        OUTPUT_FILE ${asset_output_path}.log)
+        OUTPUT_FILE ${asset_output_path}.log
+        ERROR_FILE ${asset_output_path}.log)
 
     if( NOT EXISTS ${asset_output_path} )
         message(FATAL_ERROR "When compiling ${asset_path}: ouput asset was not created - something went wrong!")
@@ -28,6 +29,7 @@ endfunction()
 function(_td_compile_asset_texture asset_directory asset_name asset_input_path asset_output_path)
     # message("Compiling TEXTURE name = ${asset_name}, path = ${asset_path}, args: ${ARGN}")
     
+    set(texture_color_type -bpp 16)
     foreach(arg IN LISTS ARGN)
         if( ${arg} MATCHES PALETTE4 )
             set(texture_color_type -bpp 4)
