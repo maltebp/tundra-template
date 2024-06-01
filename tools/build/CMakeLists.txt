@@ -28,10 +28,9 @@ td_link_engine(${TD_GAME_WORKSPACE_NAME})
 td_target_assets(${TD_GAME_WORKSPACE_NAME} ${TD_GAME_DIR_ROOT}/assets ${ASSETS})
 
 # Comment out to build CD image
-# NOTE: iso.xml content has to be updated to match project name
-# psn00bsdk_add_cd_image(
-# 	iso      # Target name
-# 	${TD_GAME_WORKSPACE_NAME} # Output file name (.bin and .cue)
-# 	iso.xml  # Path to config file
-# 	DEPENDS ${TD_GAME_WORKSPACE_NAME} system.cnf
-# )
+psn00bsdk_add_cd_image(
+	iso      # Target name
+	${TD_GAME_WORKSPACE_NAME} # Output file name (.bin and .cue)
+	${CMAKE_CURRENT_LIST_DIR}/iso.xml  # Path to config file
+	DEPENDS ${TD_GAME_WORKSPACE_NAME} ${CMAKE_CURRENT_LIST_DIR}/system.cnf
+)
