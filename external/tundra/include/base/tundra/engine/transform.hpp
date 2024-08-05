@@ -2,7 +2,7 @@
 
 #include <tundra/engine/entity-system/component.hpp>
 #include <tundra/engine/transform-matrix.hpp>
-
+    
 namespace td {
 
     enum class TransformType {

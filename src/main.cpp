@@ -34,7 +34,7 @@ public:
     static Box* create() {
         td::Entity* entity = td::Entity::create();
         td::DynamicTransform* transform = entity->add_component<td::DynamicTransform>();
-        entity->add_component<td::Model>(*assets::models::white_box, LAYER_WORLD, transform);
+        auto m = entity->add_component<td::Model>(*assets::models::white_box, LAYER_WORLD, transform);
         return entity->add_component<Box>(transform);
     }
 
@@ -65,10 +65,23 @@ extern void initialize(td::EngineSystems& engine_systems) {
 
     // Create box
     Box::create()->transform->set_scale({ 2, 2, 2 });
+
+    td::Entity* e = td::Entity::create();
+    td::Text* text = e->add_component<td::Text>(LAYER_FOREGROUND);
+    text->text = "Hello, world!";
+    position = td::Vec2<Fixed32<12>>{140, 200};
+
 }
 
 extern void update(td::EngineSystems& engine_systems, const td::FrameTime& frame_time) {
     for( Box* box : Box::get_all() ) {
         box->transform->add_rotation({0, td::to_fixed(0.005), 0});
     }
+
+    td::Duration start = engine_systems.time.get_duration_since_start();
+
+    td::Duration end = engine_systems.time.get_duration_since_start();
+    td::Duration length = end - start;
+
+    TD_DEBUG_LOG("%d", length.to_milliseconds());
 }
